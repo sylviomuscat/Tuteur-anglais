@@ -1,0 +1,35 @@
+# Caddy obtient tout seul un certificat HTTPS pour DOMAIN (Let's Encrypt).
+# Seules les requêtes venant du site (ALLOWED_ORIGIN) avec la bonne clé (API_KEY) passent.
+{$DOMAIN} {
+	# Le navigateur envoie d'abord une requête OPTIONS (CORS) sans clé : on y répond directement.
+	@preflight method OPTIONS
+	handle @preflight {
+		header Access-Control-Allow-Origin "{$ALLOWED_ORIGIN}"
+		header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		header Access-Control-Allow-Headers "Authorization, Content-Type"
+		header Access-Control-Max-Age "86400"
+		header Vary "Origin"
+		respond 204
+	}
+
+	# Requêtes autorisées : bonne clé et seulement les deux routes utiles.
+	@authorized {
+		header Authorization "Bearer {$API_KEY}"
+		path /api/chat /api/tags
+	}
+	handle @authorized {
+		header >Access-Control-Allow-Origin "{$ALLOWED_ORIGIN}"
+		header >Vary "Origin"
+		reverse_proxy ollama:11434 {
+			header_up -Origin
+			header_down -Access-Control-Allow-Origin
+			flush_interval -1
+		}
+	}
+
+	# Tout le reste est refusé.
+	handle {
+		header Access-Control-Allow-Origin "{$ALLOWED_ORIGIN}"
+		respond "Non autorisé" 401
+	}
+}

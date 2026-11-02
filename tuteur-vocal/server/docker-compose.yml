@@ -1,0 +1,31 @@
+# Serveur du tuteur : Ollama (le modèle d'IA) + Caddy (HTTPS, clé d'accès, CORS).
+# Ollama n'est pas exposé sur internet : seul Caddy lui parle, sur le réseau interne Docker.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h        # garde le modèle en mémoire : réponses plus rapides
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  ollama:
+  caddy_data:
+  caddy_config:
